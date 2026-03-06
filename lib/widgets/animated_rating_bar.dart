@@ -46,14 +46,18 @@ class AnimatedRatingBar extends StatefulWidget {
   final double? width;
 
   /// Fills color on inner layer of icon except stroke.
+  ///
+  /// Note: Per-component color customisation is not supported in Rive >=0.14.
   final Color? activeFillColor;
 
   /// You can even modify stroke color using this property.
+  ///
+  /// Note: Per-component color customisation is not supported in Rive >=0.14.
   final Color? strokeColor;
 
   /// Animation color holds both glow and sparks color
   ///
-  /// Use it accordingly.
+  /// Note: Per-component color customisation is not supported in Rive >=0.14.
   final Color? animationColor;
 
   /// This holds double value on updation of the rating.
@@ -64,95 +68,60 @@ class AnimatedRatingBar extends StatefulWidget {
 }
 
 class _AnimatedRatingBarState extends State<AnimatedRatingBar> {
-  StateMachineController? stateMachineController;
-  SMIInput<double>? initialValue;
-  double ratingValue = 0.0;
+  late final FileLoader _fileLoader;
+  RiveWidgetController? _controller;
+  // ignore: deprecated_member_use
+  NumberInput? _ratingInput;
+  double _lastRatingValue = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fileLoader = FileLoader.fromAsset(
+      "packages/animated_rating_bar/assets/new_rating_animation.riv",
+      riveFactory: Factory.flutter,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onControllerChanged);
+    _fileLoader.dispose();
+    super.dispose();
+  }
+
+  void _onRiveLoaded(RiveLoaded state) {
+    _controller = state.controller;
+    // ignore: deprecated_member_use
+    _ratingInput = _controller!.stateMachine.number('Rating');
+    _ratingInput?.value = widget.initialRating ?? 1;
+    _controller!.addListener(_onControllerChanged);
+  }
+
+  void _onControllerChanged() {
+    final newRating = _ratingInput?.value ?? 0.0;
+    if (newRating != _lastRatingValue) {
+      _lastRatingValue = newRating;
+      widget.onRatingUpdate(newRating);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: widget.height ?? 40,
       width: widget.width ?? 140,
-      child: RiveAnimation.asset(
-        "packages/animated_rating_bar/assets/new_rating_animation.riv",
-        onInit: (artboard) {
-          stateMachineController = StateMachineController.fromArtboard(
-            artboard,
-            "State Machine 1",
-            onStateChange: (stateMachineName, stateName) {
-              // print("$stateMachineName, $stateName");
-              setState(() {
-                int? id = initialValue!.id;
-                ratingValue = stateMachineController!.getInputValue(id);
-                widget.onRatingUpdate(ratingValue);
-              });
-            },
-          );
-          if (stateMachineController != null) {
-            artboard.addController(stateMachineController!);
-            initialValue = stateMachineController!.findInput("Rating");
-            initialValue!.change(widget.initialRating ?? 1);
-          }
-
-          /// Customisation of each components from rive.
-          artboard.forEachComponent(
-            (child) {
-              if (child is Shape) {
-                final Shape shape = child;
-                // if (shape.name == "Star_base_1") {
-                //   debugPrint("Shape Name====> ${shape.name}");
-                //   debugPrint(
-                //       "Shape Fills====> ${shape.fills.first.children[0]}");
-                //   debugPrint(
-                //       "Shape Strokes====> ${shape.strokes.elementAt(0).paint.color}");
-                // }
-                if (widget.activeFillColor != null) {
-                  if (shape.name == "Star_1" ||
-                      shape.name == "Star_2" ||
-                      shape.name == "Star_3" ||
-                      shape.name == "Star_4" ||
-                      shape.name == "Star_5") {
-                    (shape.fills.first.children[0] as SolidColor).colorValue =
-                        widget.activeFillColor!.value;
-                  } else if (shape.name == "Star_base_1" ||
-                      shape.name == "Star_base_2" ||
-                      shape.name == "Star_base_3" ||
-                      shape.name == "Star_base_4" ||
-                      shape.name == "Star_base_5") {
-                    (shape.strokes.first.children[0] as SolidColor).colorValue =
-                        widget.strokeColor?.value ??
-                            widget.activeFillColor!.value;
-                  } else if (shape.name == "Star_4_glow" ||
-                      shape.name == "Star_5_glow" ||
-                      shape.name == "Star_5_sparks") {
-                    (shape.strokes.first.children[0] as SolidColor).colorValue =
-                        widget.animationColor?.value ??
-                            widget.activeFillColor!.value;
-                  }
-                } else {
-                  var brightness = MediaQuery.of(context).platformBrightness;
-                  bool isDarkMode = brightness == Brightness.dark;
-                  if (shape.name == "Star_1" ||
-                      shape.name == "Star_2" ||
-                      shape.name == "Star_3" ||
-                      shape.name == "Star_4" ||
-                      shape.name == "Star_5") {
-                    (shape.fills.first.children[0] as SolidColor).colorValue =
-                        isDarkMode
-                            ? ThemeData.light().primaryColor.value
-                            : ThemeData.dark().primaryColor.value;
-                  } else if (shape.name == "Star_4_glow" ||
-                      shape.name == "Star_5_glow" ||
-                      shape.name == "Star_5_sparks") {
-                    (shape.strokes.first.children[0] as SolidColor).colorValue =
-                        isDarkMode
-                            ? ThemeData.light().primaryColor.value
-                            : ThemeData.dark().primaryColor.value;
-                  }
-                }
-              }
-            },
-          );
+      child: RiveWidgetBuilder(
+        fileLoader: _fileLoader,
+        stateMachineSelector: StateMachineSelector.byName("State Machine 1"),
+        onLoaded: _onRiveLoaded,
+        builder: (context, state) => switch (state) {
+          RiveLoading() => const SizedBox.shrink(),
+          RiveFailed() => const SizedBox.shrink(),
+          RiveLoaded() => RiveWidget(
+              controller: state.controller,
+              fit: Fit.contain,
+            ),
         },
       ),
     );

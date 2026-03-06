@@ -1,6 +1,6 @@
 name: animated_rating_bar
 description: Animated Rating Bar can be used for rating which enhaces User Experince by displaying beautiful animation like glows and sparks.
-version: 0.0.8
+version: 0.0.9
 repository: https://github.com/codersangam/animated_rating_bar
 examples: https://github.com/codersangam/animated_rating_bar/tree/main/example
 
@@ -9,14 +9,14 @@ environment:
   flutter: ">=1.17.0"
 
 dependencies:
-  rive: ^0.11.1
+  rive: ^0.14.0
   flutter:
     sdk: flutter
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
